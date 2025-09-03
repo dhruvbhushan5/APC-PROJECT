@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Booking Flow</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border: 1px solid #ddd; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .success { background: #d1edff; border-color: #bee5eb; }
+    </style>
+</head>
+<body>
+    <h1>Hotel Booking & Payment Flow Test</h1>
+
+    <div class="test-section">
+        <h3>1. Test Room Service</h3>
+        <button onclick="testRooms()">Get All Rooms</button>
+        <div id="rooms-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Create Booking</h3>
+        <button onclick="testBooking()">Create Test Booking</button>
+        <div id="booking-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Get Booking</h3>
+        <input type="number" id="bookingId" placeholder="Booking ID" value="1">
+        <button onclick="testGetBooking()">Get Booking Details</button>
+        <div id="get-booking-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Test Payment Service</h3>
+        <button onclick="testPayment()">Test Payment</button>
+        <div id="payment-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Service Status</h3>
+        <p><strong>Frontend:</strong> <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+        <p><strong>Room Service:</strong> <a href="http://localhost:8081/api/rooms" target="_blank">http://localhost:8081/api/rooms</a></p>
+        <p><strong>Payment Service:</strong> <a href="http://localhost:8082/api/v1/payments" target="_blank">http://localhost:8082/api/v1/payments</a></p>
+    </div>
+
+    <script>
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const data = await response.json();
+                return { success: response.ok, data, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testRooms() {
+            const result = await makeRequest('http://localhost:8081/api/rooms');
+            const resultDiv = document.getElementById('rooms-result');
+            
+            if (result.success) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '<strong>✅ Success!</strong><br>Found ' + result.data.length + ' rooms:<br><pre>' + JSON.stringify(result.data, null, 2) + '</pre>';
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<strong>❌ Error!</strong><br>' + (result.error || JSON.stringify(result.data));
+            }
+        }
+
+        async function testBooking() {
+            const bookingData = {
+                roomId: 1,
+                guestName: "Test User",
+                guestEmail: "test@example.com",
+                phoneNumber: "1234567890",
+                checkInDate: "2025-12-01",
+                checkOutDate: "2025-12-03",
+                specialRequests: "Test booking"
+            };
+
+            const result = await makeRequest('http://localhost:8081/api/bookings', {
+                method: 'POST',
+                body: JSON.stringify(bookingData)
+            });
+
+            const resultDiv = document.getElementById('booking-result');
+            
+            if (result.success) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '<strong>✅ Booking Created!</strong><br>Booking ID: ' + result.data.data.id + '<br>Status: ' + result.data.data.status + '<br>Payment URL: ' + result.data.data.paymentUrl + '<br><pre>' + JSON.stringify(result.data, null, 2) + '</pre>';
+                document.getElementById('bookingId').value = result.data.data.id;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<strong>❌ Booking Failed!</strong><br>' + (result.error || JSON.stringify(result.data));
+            }
+        }
+
+        async function testGetBooking() {
+            const bookingId = document.getElementById('bookingId').value;
+            const result = await makeRequest('http://localhost:8081/api/bookings/' + bookingId);
+            
+            const resultDiv = document.getElementById('get-booking-result');
+            
+            if (result.success) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '<strong>✅ Booking Found!</strong><br><pre>' + JSON.stringify(result.data, null, 2) + '</pre>';
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<strong>❌ Booking Not Found!</strong><br>Status: ' + result.status + '<br>' + (result.error || JSON.stringify(result.data));
+            }
+        }
+
+        async function testPayment() {
+            const paymentData = {
+                bookingId: parseInt(document.getElementById('bookingId').value) || 1,
+                amount: 5000.00,
+                paymentMethod: "CREDIT_CARD",
+                status: "PENDING",
+                customerEmail: "test@example.com",
+                customerName: "Test User",
+                description: "Test payment",
+                cardLastFourDigits: "1234",
+                cardType: "VISA"
+            };
+
+            const result = await makeRequest('http://localhost:8082/api/v1/payments', {
+                method: 'POST',
+                body: JSON.stringify(paymentData)
+            });
+
+            const resultDiv = document.getElementById('payment-result');
+            
+            if (result.success) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '<strong>✅ Payment Created!</strong><br><pre>' + JSON.stringify(result.data, null, 2) + '</pre>';
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<strong>❌ Payment Failed!</strong><br>Status: ' + result.status + '<br>' + (result.error || JSON.stringify(result.data));
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            testRooms();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+package com.hotel.room.service;
+
+import com.hotel.common.dto.BookingDto;
+import com.hotel.room.entity.Booking;
+import com.hotel.room.entity.Room;
+import com.hotel.room.mapper.BookingMapper;
+import com.hotel.room.repository.BookingRepository;
+import com.hotel.room.repository.RoomRepository;
+import com.hotel.room.service.impl.BookingServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class BookingServiceTest {
+
+    @Mock
+    private BookingRepository bookingRepository;
+
+    @Mock
+    private RoomRepository roomRepository;
+
+    @Mock
+    private BookingMapper bookingMapper;
+
+    @InjectMocks
+    private BookingServiceImpl bookingService;
+
+    private Room room;
+    private Booking booking;
+    private BookingDto bookingDto;
+
+    @BeforeEach
+    void setUp() {
+        room = Room.builder()
+                .id(1L)
+                .roomNumber("101")
+                .roomType("SINGLE")
+                .pricePerNight(BigDecimal.valueOf(100.00))
+                .isAvailable(true)
+                .build();
+
+        booking = Booking.builder()
+                .id(1L)
+                .room(room)
+                .guestName("John Doe")
+                .guestEmail("john.doe@example.com")
+                .guestPhone("+1234567890")
+                .checkInDate(LocalDate.now().plusDays(1))
+                .checkOutDate(LocalDate.now().plusDays(3))
+                .numberOfGuests(1)
+                .totalAmount(BigDecimal.valueOf(200.00))
+                .specialRequests("Late check-in")
+                .status("CONFIRMED")
+                .build();
+
+        bookingDto = BookingDto.builder()
+                .id(1L)
+                .roomId(1L)
+                .guestName("John Doe")
+                .guestEmail("john.doe@example.com")
+                .guestPhone("+1234567890")
+                .checkInDate(LocalDate.now().plusDays(1))
+                .checkOutDate(LocalDate.now().plusDays(3))
+                .numberOfGuests(1)
+                .totalAmount(BigDecimal.valueOf(200.00))
+                .specialRequests("Late check-in")
+                .status("CONFIRMED")
+                .build();
+    }
+
+    @Test
+    void createBooking_ShouldCreateBooking_WhenValidInput() {
+        // Given
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+        when(bookingRepository.findConflictingBookings(eq(1L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(Arrays.asList());
+        when(bookingMapper.toEntity(any(BookingDto.class))).thenReturn(booking);
+        when(bookingRepository.save(any(Booking.class))).thenReturn(booking);
+        when(bookingMapper.toDto(any(Booking.class))).thenReturn(bookingDto);
+
+        // When
+        BookingDto result = bookingService.createBooking(bookingDto);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getGuestName()).isEqualTo("John Doe");
+        assertThat(result.getStatus()).isEqualTo("CONFIRMED");
+        assertThat(result.getTotalAmount()).isEqualTo(BigDecimal.valueOf(200.00));
+        
+        verify(roomRepository).findById(1L);
+        verify(bookingRepository).findConflictingBookings(eq(1L), any(LocalDate.class), any(LocalDate.class));
+        verify(bookingRepository).save(any(Booking.class));
+    }
+
+    @Test
+    void createBooking_ShouldThrowException_WhenRoomNotFound() {
+        // Given
+        when(roomRepository.findById(1L)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> bookingService.createBooking(bookingDto))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Room not found");
+        
+        verify(roomRepository).findById(1L);
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
+    void createBooking_ShouldThrowException_WhenRoomNotAvailable() {
+        // Given
+        room.setIsAvailable(false);
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+
+        // When & Then
+        assertThatThrownBy(() -> bookingService.createBooking(bookingDto))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Room is not available");
+        
+        verify(roomRepository).findById(1L);
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
+    void createBooking_ShouldThrowException_WhenConflictingBookingExists() {
+        // Given
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+        when(bookingRepository.findConflictingBookings(eq(1L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(Arrays.asList(booking));
+
+        // When & Then
+        assertThatThrownBy(() -> bookingService.createBooking(bookingDto))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Room is already booked");
+        
+        verify(roomRepository).findById(1L);
+        verify(bookingRepository).findConflictingBookings(eq(1L), any(LocalDate.class), any(LocalDate.class));
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
+    void getBookingById_ShouldReturnBooking_WhenBookingExists() {
+        // Given
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+        when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
+
+        // When
+        Optional<BookingDto> result = bookingService.getBookingById(1L);
+
+        // Then
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(1L);
+        assertThat(result.get().getGuestName()).isEqualTo("John Doe");
+        
+        verify(bookingRepository).findById(1L);
+        verify(bookingMapper).toDto(booking);
+    }
+
+    @Test
+    void getAllBookings_ShouldReturnPagedBookings() {
+        // Given
+        List<Booking> bookings = Arrays.asList(booking);
+        Page<Booking> bookingPage = new PageImpl<>(bookings, PageRequest.of(0, 10), 1);
+        List<BookingDto> bookingDtos = Arrays.asList(bookingDto);
+        
+        when(bookingRepository.findAll(any(Pageable.class))).thenReturn(bookingPage);
+        when(bookingMapper.toDto(bookings)).thenReturn(bookingDtos);
+
+        // When
+        Page<BookingDto> result = bookingService.getAllBookings(PageRequest.of(0, 10));
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getGuestName()).isEqualTo("John Doe");
+        
+        verify(bookingRepository).findAll(any(Pageable.class));
+        verify(bookingMapper).toDto(bookings);
+    }
+
+    @Test
+    void updateBookingStatus_ShouldUpdateStatus_WhenBookingExists() {
+        // Given
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenReturn(booking);
+        when(bookingMapper.toDto(any(Booking.class))).thenReturn(bookingDto);
+
+        // When
+        Optional<BookingDto> result = bookingService.updateBookingStatus(1L, "CANCELLED");
+
+        // Then
+        assertThat(result).isPresent();
+        verify(bookingRepository).findById(1L);
+        verify(bookingRepository).save(any(Booking.class));
+    }
+
+    @Test
+    void cancelBooking_ShouldCancelBooking_WhenBookingExists() {
+        // Given
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenReturn(booking);
+        when(bookingMapper.toDto(any(Booking.class))).thenReturn(bookingDto);
+
+        // When
+        Optional<BookingDto> result = bookingService.cancelBooking(1L);
+
+        // Then
+        assertThat(result).isPresent();
+        verify(bookingRepository).findById(1L);
+        verify(bookingRepository).save(any(Booking.class));
+    }
+
+    @Test
+    void findBookingsByGuestEmail_ShouldReturnBookings() {
+        // Given
+        List<Booking> guestBookings = Arrays.asList(booking);
+        List<BookingDto> guestBookingDtos = Arrays.asList(bookingDto);
+        
+        when(bookingRepository.findByGuestEmail("john.doe@example.com")).thenReturn(guestBookings);
+        when(bookingMapper.toDto(guestBookings)).thenReturn(guestBookingDtos);
+
+        // When
+        List<BookingDto> result = bookingService.findBookingsByGuestEmail("john.doe@example.com");
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getGuestEmail()).isEqualTo("john.doe@example.com");
+        
+        verify(bookingRepository).findByGuestEmail("john.doe@example.com");
+        verify(bookingMapper).toDto(guestBookings);
+    }
+
+    @Test
+    void findBookingsByStatus_ShouldReturnBookingsWithStatus() {
+        // Given
+        List<Booking> confirmedBookings = Arrays.asList(booking);
+        List<BookingDto> confirmedBookingDtos = Arrays.asList(bookingDto);
+        
+        when(bookingRepository.findByStatus("CONFIRMED")).thenReturn(confirmedBookings);
+        when(bookingMapper.toDto(confirmedBookings)).thenReturn(confirmedBookingDtos);
+
+        // When
+        List<BookingDto> result = bookingService.findBookingsByStatus("CONFIRMED");
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo("CONFIRMED");
+        
+        verify(bookingRepository).findByStatus("CONFIRMED");
+        verify(bookingMapper).toDto(confirmedBookings);
+    }
+
+    @Test
+    void findBookingsByDateRange_ShouldReturnBookingsInDateRange() {
+        // Given
+        LocalDate startDate = LocalDate.now();
+        LocalDate endDate = LocalDate.now().plusDays(7);
+        List<Booking> dateRangeBookings = Arrays.asList(booking);
+        List<BookingDto> dateRangeBookingDtos = Arrays.asList(bookingDto);
+        
+        when(bookingRepository.findBookingsByDateRange(startDate, endDate)).thenReturn(dateRangeBookings);
+        when(bookingMapper.toDto(dateRangeBookings)).thenReturn(dateRangeBookingDtos);
+
+        // When
+        List<BookingDto> result = bookingService.findBookingsByDateRange(startDate, endDate);
+
+        // Then
+        assertThat(result).hasSize(1);
+        
+        verify(bookingRepository).findBookingsByDateRange(startDate, endDate);
+        verify(bookingMapper).toDto(dateRangeBookings);
+    }
+
+    @Test
+    void checkRoomAvailability_ShouldReturnTrue_WhenRoomAvailable() {
+        // Given
+        LocalDate checkIn = LocalDate.now().plusDays(5);
+        LocalDate checkOut = LocalDate.now().plusDays(7);
+        
+        when(bookingRepository.findConflictingBookings(1L, checkIn, checkOut))
+                .thenReturn(Arrays.asList());
+
+        // When
+        boolean result = bookingService.checkRoomAvailability(1L, checkIn, checkOut);
+
+        // Then
+        assertThat(result).isTrue();
+        verify(bookingRepository).findConflictingBookings(1L, checkIn, checkOut);
+    }
+
+    @Test
+    void checkRoomAvailability_ShouldReturnFalse_WhenRoomNotAvailable() {
+        // Given
+        LocalDate checkIn = LocalDate.now().plusDays(1);
+        LocalDate checkOut = LocalDate.now().plusDays(3);
+        
+        when(bookingRepository.findConflictingBookings(1L, checkIn, checkOut))
+                .thenReturn(Arrays.asList(booking));
+
+        // When
+        boolean result = bookingService.checkRoomAvailability(1L, checkIn, checkOut);
+
+        // Then
+        assertThat(result).isFalse();
+        verify(bookingRepository).findConflictingBookings(1L, checkIn, checkOut);
+    }
+}

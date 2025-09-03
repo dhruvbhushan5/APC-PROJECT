@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Booking & Reservations</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 10px; margin-top: 10px; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #fff5f5; }
+        .success { border-left-color: #28a745; background: #f0fff4; }
+        pre { white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Booking & Reservations Test</h1>
+    
+    <div class="section">
+        <h2>Test Complete Booking Flow</h2>
+        <button onclick="testCompleteFlow()">1. Get Rooms → 2. Create Booking → 3. Get Reservations</button>
+        <button onclick="testGetReservations()">Get All Reservations</button>
+        <button onclick="testCreateBooking()">Create Test Booking</button>
+        <div id="flow-result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    return { success: true, data, status: response.status };
+                } else {
+                    return { success: false, data, status: response.status };
+                }
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function showResult(title, result, elementId = 'flow-result') {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.style.display = 'block';
+            
+            if (result.success) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <strong>✅ ${title}</strong><br/>
+                    <strong>Status:</strong> ${result.status}<br/>
+                    <strong>Data:</strong><br/>
+                    <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                `;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <strong>❌ ${title}</strong><br/>
+                    <strong>Error:</strong> ${result.error || 'Request failed'}<br/>
+                    ${result.data ? `<strong>Data:</strong><br/><pre>${JSON.stringify(result.data, null, 2)}</pre>` : ''}
+                `;
+            }
+        }
+
+        async function testCompleteFlow() {
+            const resultDiv = document.getElementById('flow-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '<strong>🔄 Testing Complete Flow...</strong><br/>Step 1: Getting available rooms...';
+
+            // Step 1: Get rooms
+            const roomsResult = await makeRequest('http://localhost:8081/api/rooms/all');
+            if (!roomsResult.success) {
+                await showResult('FAILED - Could not get rooms', roomsResult);
+                return;
+            }
+
+            resultDiv.innerHTML += '<br/>✅ Got rooms<br/>Step 2: Creating a test booking...';
+
+            // Step 2: Create a booking
+            const bookingData = {
+                roomId: roomsResult.data[0]?.id || 1,
+                guestName: 'Test User',
+                guestEmail: 'test@example.com',
+                phoneNumber: '1234567890',
+                checkInDate: '2025-09-15',
+                checkOutDate: '2025-09-17',
+                specialRequests: 'Test booking from complete flow'
+            };
+
+            const bookingResult = await makeRequest('http://localhost:8081/api/bookings', {
+                method: 'POST',
+                body: JSON.stringify(bookingData)
+            });
+
+            if (!bookingResult.success) {
+                await showResult('FAILED - Could not create booking', bookingResult);
+                return;
+            }
+
+            resultDiv.innerHTML += '<br/>✅ Created booking<br/>Step 3: Getting all reservations...';
+
+            // Step 3: Get all bookings/reservations
+            const reservationsResult = await makeRequest('http://localhost:8081/api/bookings');
+            
+            if (reservationsResult.success) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <strong>✅ COMPLETE FLOW SUCCESS!</strong><br/>
+                    <strong>Rooms Found:</strong> ${roomsResult.data.length}<br/>
+                    <strong>Booking Created:</strong> ID ${bookingResult.data.data?.id || 'Unknown'}<br/>
+                    <strong>Total Reservations:</strong> ${reservationsResult.data.length}<br/>
+                    <br/>
+                    <strong>Latest Booking Details:</strong><br/>
+                    <pre>${JSON.stringify(bookingResult.data, null, 2)}</pre>
+                    <br/>
+                    <strong>All Reservations:</strong><br/>
+                    <pre>${JSON.stringify(reservationsResult.data, null, 2)}</pre>
+                `;
+            } else {
+                await showResult('FAILED - Could not get reservations', reservationsResult);
+            }
+        }
+
+        async function testGetReservations() {
+            const result = await makeRequest('http://localhost:8081/api/bookings');
+            await showResult('GET RESERVATIONS', result);
+        }
+
+        async function testCreateBooking() {
+            const bookingData = {
+                roomId: 1,
+                guestName: 'Quick Test User',
+                guestEmail: 'quicktest@example.com',
+                phoneNumber: '9876543210',
+                checkInDate: '2025-09-20',
+                checkOutDate: '2025-09-22',
+                specialRequests: 'Quick test booking'
+            };
+            
+            const result = await makeRequest('http://localhost:8081/api/bookings', {
+                method: 'POST',
+                body: JSON.stringify(bookingData)
+            });
+            
+            await showResult('CREATE BOOKING', result);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+package com.hotel.room.controller;
+
+import com.hotel.room.service.BookingService;
+import com.hotel.common.dto.ApiResponse;
+import com.hotel.common.dto.BookingDto;
+import com.hotel.common.dto.BookingStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * REST Controller for Booking management operations
+ */
+@RestController
+@RequestMapping("/api/v1/bookings")
+@RequiredArgsConstructor
+@Slf4j
+@Validated
+@Tag(name = "Booking Management", description = "APIs for managing hotel bookings")
+public class BookingController {
+
+    private final BookingService bookingService;
+
+    @Operation(summary = "Create a new booking", description = "Creates a new booking in the hotel system")
+    @PostMapping
+    public ResponseEntity<ApiResponse<BookingDto>> createBooking(
+            @Valid @RequestBody BookingDto bookingDto) {
+        log.info("Creating new booking for guest: {}", bookingDto.getGuestEmail());
+        
+        BookingDto createdBooking = bookingService.createBooking(bookingDto);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Booking created successfully")
+                .data(createdBooking)
+                .build();
+        
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @Operation(summary = "Get booking by ID", description = "Retrieves a booking by its unique identifier")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<BookingDto>> getBookingById(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id) {
+        log.info("Fetching booking with ID: {}", id);
+        
+        BookingDto booking = bookingService.getBookingById(id);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Booking retrieved successfully")
+                .data(booking)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get all bookings", description = "Retrieves all bookings with pagination")
+    @GetMapping
+    public ResponseEntity<ApiResponse<Page<BookingDto>>> getAllBookings(
+            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        log.info("Fetching all bookings with pagination: {}", pageable);
+        
+        Page<BookingDto> bookings = bookingService.getAllBookings(pageable);
+        ApiResponse<Page<BookingDto>> response = ApiResponse.<Page<BookingDto>>builder()
+                .success(true)
+                .message("Bookings retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get bookings by status", description = "Retrieves bookings filtered by status")
+    @GetMapping("/status/{status}")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getBookingsByStatus(
+            @Parameter(description = "Booking status") @PathVariable BookingStatus status) {
+        log.info("Fetching bookings by status: {}", status);
+        
+        List<BookingDto> bookings = bookingService.getBookingsByStatus(status);
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Bookings retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get bookings by guest email", description = "Retrieves bookings for a specific guest")
+    @GetMapping("/guest/{email}")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getBookingsByGuestEmail(
+            @Parameter(description = "Guest email") @PathVariable @Email String email) {
+        log.info("Fetching bookings for guest: {}", email);
+        
+        List<BookingDto> bookings = bookingService.getBookingsByGuestEmail(email);
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Guest bookings retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get bookings by room", description = "Retrieves bookings for a specific room")
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getBookingsByRoomId(
+            @Parameter(description = "Room ID") @PathVariable @Positive Long roomId) {
+        log.info("Fetching bookings for room: {}", roomId);
+        
+        List<BookingDto> bookings = bookingService.getBookingsByRoomId(roomId);
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Room bookings retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get bookings by date range", description = "Retrieves bookings within a date range")
+    @GetMapping("/date-range")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getBookingsByDateRange(
+            @Parameter(description = "Start date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "End date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Fetching bookings between {} and {}", startDate, endDate);
+        
+        List<BookingDto> bookings = bookingService.getBookingsByDateRange(startDate, endDate);
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Bookings retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get active bookings", description = "Retrieves all currently active bookings")
+    @GetMapping("/active")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getActiveBookings() {
+        log.info("Fetching active bookings");
+        
+        List<BookingDto> bookings = bookingService.getActiveBookings();
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Active bookings retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get upcoming check-ins", description = "Retrieves bookings with upcoming check-ins")
+    @GetMapping("/upcoming-checkins")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getUpcomingCheckIns(
+            @Parameter(description = "Date") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        log.info("Fetching upcoming check-ins for date: {}", targetDate);
+        
+        List<BookingDto> bookings = bookingService.getUpcomingCheckIns(targetDate);
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Upcoming check-ins retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get upcoming check-outs", description = "Retrieves bookings with upcoming check-outs")
+    @GetMapping("/upcoming-checkouts")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getUpcomingCheckOuts(
+            @Parameter(description = "Date") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        log.info("Fetching upcoming check-outs for date: {}", targetDate);
+        
+        List<BookingDto> bookings = bookingService.getUpcomingCheckOuts(targetDate);
+        ApiResponse<List<BookingDto>> response = ApiResponse.<List<BookingDto>>builder()
+                .success(true)
+                .message("Upcoming check-outs retrieved successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Search bookings", description = "Search bookings with multiple filters")
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Page<BookingDto>>> searchBookings(
+            @Parameter(description = "Guest email") @RequestParam(required = false) @Email String guestEmail,
+            @Parameter(description = "Room ID") @RequestParam(required = false) Long roomId,
+            @Parameter(description = "Booking status") @RequestParam(required = false) BookingStatus status,
+            @Parameter(description = "Check-in date from") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInFrom,
+            @Parameter(description = "Check-in date to") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInTo,
+            @Parameter(description = "Check-out date from") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutFrom,
+            @Parameter(description = "Check-out date to") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutTo,
+            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        log.info("Searching bookings with filters");
+        
+        Page<BookingDto> bookings = bookingService.searchBookings(
+                guestEmail, roomId, status, checkInFrom, checkInTo, checkOutFrom, checkOutTo, pageable);
+        ApiResponse<Page<BookingDto>> response = ApiResponse.<Page<BookingDto>>builder()
+                .success(true)
+                .message("Booking search completed successfully")
+                .data(bookings)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Update booking", description = "Updates an existing booking")
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<BookingDto>> updateBooking(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id,
+            @Valid @RequestBody BookingDto bookingDto) {
+        log.info("Updating booking with ID: {}", id);
+        
+        BookingDto updatedBooking = bookingService.updateBooking(id, bookingDto);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Booking updated successfully")
+                .data(updatedBooking)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Update booking status", description = "Updates the status of a booking")
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<BookingDto>> updateBookingStatus(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id,
+            @Parameter(description = "New booking status") @RequestParam BookingStatus status) {
+        log.info("Updating booking {} status to: {}", id, status);
+        
+        BookingDto updatedBooking = bookingService.updateBookingStatus(id, status);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Booking status updated successfully")
+                .data(updatedBooking)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Check-in guest", description = "Performs check-in for a booking")
+    @PostMapping("/{id}/checkin")
+    public ResponseEntity<ApiResponse<BookingDto>> checkIn(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id) {
+        log.info("Checking in booking: {}", id);
+        
+        BookingDto checkedInBooking = bookingService.checkIn(id);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Check-in completed successfully")
+                .data(checkedInBooking)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Check-out guest", description = "Performs check-out for a booking")
+    @PostMapping("/{id}/checkout")
+    public ResponseEntity<ApiResponse<BookingDto>> checkOut(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id) {
+        log.info("Checking out booking: {}", id);
+        
+        BookingDto checkedOutBooking = bookingService.checkOut(id);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Check-out completed successfully")
+                .data(checkedOutBooking)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Cancel booking", description = "Cancels a booking")
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<BookingDto>> cancelBooking(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id,
+            @Parameter(description = "Cancellation reason") @RequestParam(required = false) String reason) {
+        log.info("Cancelling booking: {} with reason: {}", id, reason);
+        
+        BookingDto cancelledBooking = bookingService.cancelBooking(id, reason);
+        ApiResponse<BookingDto> response = ApiResponse.<BookingDto>builder()
+                .success(true)
+                .message("Booking cancelled successfully")
+                .data(cancelledBooking)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Delete booking", description = "Deletes a booking from the system")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteBooking(
+            @Parameter(description = "Booking ID") @PathVariable @Positive Long id) {
+        log.info("Deleting booking with ID: {}", id);
+        
+        bookingService.deleteBooking(id);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(true)
+                .message("Booking deleted successfully")
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+}

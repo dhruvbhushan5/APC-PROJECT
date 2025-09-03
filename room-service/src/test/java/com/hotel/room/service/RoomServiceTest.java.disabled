@@ -1,0 +1,300 @@
+package com.hotel.room.service;
+
+import com.hotel.common.dto.RoomDto;
+import com.hotel.room.entity.Room;
+import com.hotel.room.mapper.RoomMapper;
+import com.hotel.room.repository.RoomRepository;
+import com.hotel.room.service.impl.RoomServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class RoomServiceTest {
+
+    @Mock
+    private RoomRepository roomRepository;
+
+    @Mock
+    private RoomMapper roomMapper;
+
+    @InjectMocks
+    private RoomServiceImpl roomService;
+
+    private Room room;
+    private RoomDto roomDto;
+
+    @BeforeEach
+    void setUp() {
+        room = Room.builder()
+                .id(1L)
+                .roomNumber("101")
+                .roomType("SINGLE")
+                .pricePerNight(BigDecimal.valueOf(100.00))
+                .description("Standard single room")
+                .maxOccupancy(1)
+                .amenities("WiFi, AC, TV")
+                .isAvailable(true)
+                .build();
+
+        roomDto = RoomDto.builder()
+                .id(1L)
+                .roomNumber("101")
+                .roomType("SINGLE")
+                .pricePerNight(BigDecimal.valueOf(100.00))
+                .description("Standard single room")
+                .maxOccupancy(1)
+                .amenities("WiFi, AC, TV")
+                .isAvailable(true)
+                .build();
+    }
+
+    @Test
+    void createRoom_ShouldCreateRoom_WhenValidInput() {
+        // Given
+        when(roomMapper.toEntity(any(RoomDto.class))).thenReturn(room);
+        when(roomRepository.save(any(Room.class))).thenReturn(room);
+        when(roomMapper.toDto(any(Room.class))).thenReturn(roomDto);
+
+        // When
+        RoomDto result = roomService.createRoom(roomDto);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getRoomNumber()).isEqualTo("101");
+        assertThat(result.getRoomType()).isEqualTo("SINGLE");
+        assertThat(result.getPricePerNight()).isEqualTo(BigDecimal.valueOf(100.00));
+        
+        verify(roomRepository).save(any(Room.class));
+        verify(roomMapper).toEntity(any(RoomDto.class));
+        verify(roomMapper).toDto(any(Room.class));
+    }
+
+    @Test
+    void getRoomById_ShouldReturnRoom_WhenRoomExists() {
+        // Given
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+        when(roomMapper.toDto(room)).thenReturn(roomDto);
+
+        // When
+        Optional<RoomDto> result = roomService.getRoomById(1L);
+
+        // Then
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(1L);
+        assertThat(result.get().getRoomNumber()).isEqualTo("101");
+        
+        verify(roomRepository).findById(1L);
+        verify(roomMapper).toDto(room);
+    }
+
+    @Test
+    void getRoomById_ShouldReturnEmpty_WhenRoomNotExists() {
+        // Given
+        when(roomRepository.findById(1L)).thenReturn(Optional.empty());
+
+        // When
+        Optional<RoomDto> result = roomService.getRoomById(1L);
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(roomRepository).findById(1L);
+        verify(roomMapper, never()).toDto(any(Room.class));
+    }
+
+    @Test
+    void getAllRooms_ShouldReturnPagedRooms() {
+        // Given
+        List<Room> rooms = Arrays.asList(room);
+        Page<Room> roomPage = new PageImpl<>(rooms, PageRequest.of(0, 10), 1);
+        List<RoomDto> roomDtos = Arrays.asList(roomDto);
+        
+        when(roomRepository.findAll(any(Pageable.class))).thenReturn(roomPage);
+        when(roomMapper.toDto(rooms)).thenReturn(roomDtos);
+
+        // When
+        Page<RoomDto> result = roomService.getAllRooms(PageRequest.of(0, 10));
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getRoomNumber()).isEqualTo("101");
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        
+        verify(roomRepository).findAll(any(Pageable.class));
+        verify(roomMapper).toDto(rooms);
+    }
+
+    @Test
+    void updateRoom_ShouldUpdateRoom_WhenRoomExists() {
+        // Given
+        RoomDto updateDto = RoomDto.builder()
+                .roomNumber("101")
+                .roomType("DELUXE")
+                .pricePerNight(BigDecimal.valueOf(150.00))
+                .description("Deluxe single room")
+                .maxOccupancy(2)
+                .amenities("WiFi, AC, TV, Minibar")
+                .isAvailable(true)
+                .build();
+
+        Room updatedRoom = Room.builder()
+                .id(1L)
+                .roomNumber("101")
+                .roomType("DELUXE")
+                .pricePerNight(BigDecimal.valueOf(150.00))
+                .description("Deluxe single room")
+                .maxOccupancy(2)
+                .amenities("WiFi, AC, TV, Minibar")
+                .isAvailable(true)
+                .build();
+
+        RoomDto updatedDto = RoomDto.builder()
+                .id(1L)
+                .roomNumber("101")
+                .roomType("DELUXE")
+                .pricePerNight(BigDecimal.valueOf(150.00))
+                .description("Deluxe single room")
+                .maxOccupancy(2)
+                .amenities("WiFi, AC, TV, Minibar")
+                .isAvailable(true)
+                .build();
+
+        when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+        when(roomRepository.save(any(Room.class))).thenReturn(updatedRoom);
+        when(roomMapper.toDto(updatedRoom)).thenReturn(updatedDto);
+
+        // When
+        Optional<RoomDto> result = roomService.updateRoom(1L, updateDto);
+
+        // Then
+        assertThat(result).isPresent();
+        assertThat(result.get().getRoomType()).isEqualTo("DELUXE");
+        assertThat(result.get().getPricePerNight()).isEqualTo(BigDecimal.valueOf(150.00));
+        assertThat(result.get().getMaxOccupancy()).isEqualTo(2);
+        
+        verify(roomRepository).findById(1L);
+        verify(roomRepository).save(any(Room.class));
+        verify(roomMapper).toDto(updatedRoom);
+    }
+
+    @Test
+    void updateRoom_ShouldReturnEmpty_WhenRoomNotExists() {
+        // Given
+        when(roomRepository.findById(1L)).thenReturn(Optional.empty());
+
+        // When
+        Optional<RoomDto> result = roomService.updateRoom(1L, roomDto);
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(roomRepository).findById(1L);
+        verify(roomRepository, never()).save(any(Room.class));
+    }
+
+    @Test
+    void deleteRoom_ShouldReturnTrue_WhenRoomExists() {
+        // Given
+        when(roomRepository.existsById(1L)).thenReturn(true);
+
+        // When
+        boolean result = roomService.deleteRoom(1L);
+
+        // Then
+        assertThat(result).isTrue();
+        verify(roomRepository).existsById(1L);
+        verify(roomRepository).deleteById(1L);
+    }
+
+    @Test
+    void deleteRoom_ShouldReturnFalse_WhenRoomNotExists() {
+        // Given
+        when(roomRepository.existsById(1L)).thenReturn(false);
+
+        // When
+        boolean result = roomService.deleteRoom(1L);
+
+        // Then
+        assertThat(result).isFalse();
+        verify(roomRepository).existsById(1L);
+        verify(roomRepository, never()).deleteById(1L);
+    }
+
+    @Test
+    void findAvailableRooms_ShouldReturnAvailableRooms() {
+        // Given
+        List<Room> availableRooms = Arrays.asList(room);
+        List<RoomDto> availableRoomDtos = Arrays.asList(roomDto);
+        
+        when(roomRepository.findByIsAvailableTrue()).thenReturn(availableRooms);
+        when(roomMapper.toDto(availableRooms)).thenReturn(availableRoomDtos);
+
+        // When
+        List<RoomDto> result = roomService.findAvailableRooms();
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).isAvailable()).isTrue();
+        
+        verify(roomRepository).findByIsAvailableTrue();
+        verify(roomMapper).toDto(availableRooms);
+    }
+
+    @Test
+    void findRoomsByType_ShouldReturnRoomsOfSpecificType() {
+        // Given
+        List<Room> singleRooms = Arrays.asList(room);
+        List<RoomDto> singleRoomDtos = Arrays.asList(roomDto);
+        
+        when(roomRepository.findByRoomType("SINGLE")).thenReturn(singleRooms);
+        when(roomMapper.toDto(singleRooms)).thenReturn(singleRoomDtos);
+
+        // When
+        List<RoomDto> result = roomService.findRoomsByType("SINGLE");
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getRoomType()).isEqualTo("SINGLE");
+        
+        verify(roomRepository).findByRoomType("SINGLE");
+        verify(roomMapper).toDto(singleRooms);
+    }
+
+    @Test
+    void findRoomsByPriceRange_ShouldReturnRoomsInPriceRange() {
+        // Given
+        BigDecimal minPrice = BigDecimal.valueOf(50.00);
+        BigDecimal maxPrice = BigDecimal.valueOf(150.00);
+        List<Room> roomsInRange = Arrays.asList(room);
+        List<RoomDto> roomDtosInRange = Arrays.asList(roomDto);
+        
+        when(roomRepository.findByPricePerNightBetween(minPrice, maxPrice)).thenReturn(roomsInRange);
+        when(roomMapper.toDto(roomsInRange)).thenReturn(roomDtosInRange);
+
+        // When
+        List<RoomDto> result = roomService.findRoomsByPriceRange(minPrice, maxPrice);
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPricePerNight()).isBetween(minPrice, maxPrice);
+        
+        verify(roomRepository).findByPricePerNightBetween(minPrice, maxPrice);
+        verify(roomMapper).toDto(roomsInRange);
+    }
+}

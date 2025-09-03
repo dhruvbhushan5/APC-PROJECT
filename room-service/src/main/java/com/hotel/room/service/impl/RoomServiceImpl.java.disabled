@@ -1,0 +1,259 @@
+package com.hotel.room.service.impl;
+
+import com.hotel.room.entity.Room;
+import com.hotel.room.mapper.RoomMapper;
+import com.hotel.room.repository.RoomRepository;
+import com.hotel.room.service.RoomService;
+import com.hotel.common.dto.RoomDto;
+import com.hotel.common.dto.RoomType;
+import com.hotel.common.dto.RoomStatus;
+import com.hotel.common.exception.ResourceNotFoundException;
+import com.hotel.common.util.DateUtils;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * Implementation of RoomService for room management operations
+ */
+@Service
+@Transactional
+@RequiredArgsConstructor
+@Slf4j
+public class RoomServiceImpl implements RoomService {
+    
+    private final RoomRepository roomRepository;
+    private final RoomMapper roomMapper;
+    
+    @Override
+    public RoomDto createRoom(RoomDto roomDto) {
+        log.info("Creating new room with number: {}", roomDto.getRoomNumber());
+        
+        // Validate room number uniqueness
+        if (roomRepository.findByRoomNumber(roomDto.getRoomNumber()).isPresent()) {
+            throw new IllegalArgumentException("Room with number " + roomDto.getRoomNumber() + " already exists");
+        }
+        
+        Room room = roomMapper.toEntity(roomDto);
+        Room savedRoom = roomRepository.save(room);
+        
+        log.info("Successfully created room with ID: {}", savedRoom.getId());
+        return roomMapper.toDto(savedRoom);
+    }
+    
+    @Override
+    public RoomDto updateRoom(Long roomId, RoomDto roomDto) {
+        log.info("Updating room with ID: {}", roomId);
+        
+        Room existingRoom = findRoomById(roomId);
+        
+        // Check if room number is being changed and if it's unique
+        if (!existingRoom.getRoomNumber().equals(roomDto.getRoomNumber())) {
+            if (roomRepository.findByRoomNumber(roomDto.getRoomNumber()).isPresent()) {
+                throw new IllegalArgumentException("Room with number " + roomDto.getRoomNumber() + " already exists");
+            }
+        }
+        
+        roomMapper.updateEntityFromDto(roomDto, existingRoom);
+        Room updatedRoom = roomRepository.save(existingRoom);
+        
+        log.info("Successfully updated room with ID: {}", roomId);
+        return roomMapper.toDto(updatedRoom);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public RoomDto getRoomById(Long roomId) {
+        log.debug("Fetching room with ID: {}", roomId);
+        Room room = findRoomById(roomId);
+        return roomMapper.toDto(room);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public RoomDto getRoomByNumber(String roomNumber) {
+        log.debug("Fetching room with number: {}", roomNumber);
+        Room room = roomRepository.findByRoomNumber(roomNumber)
+            .orElseThrow(() -> new ResourceNotFoundException("Room", roomNumber));
+        return roomMapper.toDto(room);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RoomDto> getAllRooms(Pageable pageable) {
+        log.debug("Fetching all rooms with pagination: {}", pageable);
+        Page<Room> rooms = roomRepository.findAll(pageable);
+        return rooms.map(roomMapper::toDto);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomDto> getRoomsByStatus(RoomStatus status) {
+        log.debug("Fetching rooms with status: {}", status);
+        List<Room> rooms = roomRepository.findByStatus(status);
+        return roomMapper.toDtoList(rooms);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomDto> getRoomsByType(RoomType roomType) {
+        log.debug("Fetching rooms with type: {}", roomType);
+        List<Room> rooms = roomRepository.findByRoomType(roomType);
+        return roomMapper.toDtoList(rooms);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomDto> getRoomsByFloor(Integer floorNumber) {
+        log.debug("Fetching rooms on floor: {}", floorNumber);
+        List<Room> rooms = roomRepository.findByFloorNumber(floorNumber);
+        return roomMapper.toDtoList(rooms);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomDto> getAvailableRooms(LocalDate checkIn, LocalDate checkOut) {
+        log.debug("Fetching available rooms for dates: {} to {}", checkIn, checkOut);
+        
+        if (!DateUtils.areValidBookingDates(checkIn, checkOut)) {
+            throw new IllegalArgumentException("Invalid booking dates");
+        }
+        
+        List<Room> availableRooms = roomRepository.findAvailableRoomsForDates(checkIn, checkOut);
+        return roomMapper.toDtoList(availableRooms);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomDto> getAvailableRoomsByType(RoomType roomType, LocalDate checkIn, LocalDate checkOut) {
+        log.debug("Fetching available {} rooms for dates: {} to {}", roomType, checkIn, checkOut);
+        
+        if (!DateUtils.areValidBookingDates(checkIn, checkOut)) {
+            throw new IllegalArgumentException("Invalid booking dates");
+        }
+        
+        List<Room> availableRooms = roomRepository.findAvailableRoomsByTypeForDates(roomType, checkIn, checkOut);
+        return roomMapper.toDtoList(availableRooms);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RoomDto> searchRooms(RoomType roomType, RoomStatus status, BigDecimal minPrice, BigDecimal maxPrice,
+                                    Integer minCapacity, Integer maxCapacity, LocalDate checkInDate, LocalDate checkOutDate,
+                                    Pageable pageable) {
+        log.debug("Searching rooms with filters - type: {}, status: {}, priceRange: {}-{}, capacityRange: {}-{}", 
+                 roomType, status, minPrice, maxPrice, minCapacity, maxCapacity);
+        
+        Page<Room> rooms = roomRepository.searchRooms(
+            roomType, status, minPrice, maxPrice, minCapacity, maxCapacity, checkInDate, checkOutDate, pageable);
+        return rooms.map(roomMapper::toDto);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomDto> getRoomsByAmenity(String amenity) {
+        log.debug("Fetching rooms with amenity: {}", amenity);
+        List<Room> rooms = roomRepository.findByAmenityContaining(amenity);
+        return roomMapper.toDtoList(rooms);
+    }
+    
+    @Override
+    public RoomDto updateRoomStatus(Long roomId, RoomStatus status) {
+        log.info("Updating room {} status to: {}", roomId, status);
+        
+        Room room = findRoomById(roomId);
+        room.setStatus(status);
+        Room updatedRoom = roomRepository.save(room);
+        
+        log.info("Successfully updated room {} status to: {}", roomId, status);
+        return roomMapper.toDto(updatedRoom);
+    }
+    
+    @Override
+    public void deleteRoom(Long roomId) {
+        log.info("Deleting room with ID: {}", roomId);
+        
+        Room room = findRoomById(roomId);
+        
+        // Check if room has any active bookings
+        // This would typically check with BookingService
+        // For now, we'll just change status to prevent deletion of occupied rooms
+        if (room.getStatus() == RoomStatus.OCCUPIED) {
+            throw new IllegalStateException("Cannot delete occupied room");
+        }
+        
+        roomRepository.delete(room);
+        log.info("Successfully deleted room with ID: {}", roomId);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isRoomAvailable(Long roomId, LocalDate checkIn, LocalDate checkOut) {
+        log.debug("Checking availability for room {} from {} to {}", roomId, checkIn, checkOut);
+        
+        if (!DateUtils.areValidBookingDates(checkIn, checkOut)) {
+            return false;
+        }
+        
+        // Check if room exists and is in available status
+        Room room = roomRepository.findById(roomId).orElse(null);
+        if (room == null || room.getStatus() != RoomStatus.AVAILABLE) {
+            return false;
+        }
+        
+        // For now, we'll implement a basic check
+        // In a complete implementation, this would check against BookingRepository
+        return true; // This will be properly implemented when BookingService is complete
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Map<RoomType, Long> getRoomAvailabilityStats() {
+        log.debug("Fetching room availability statistics");
+        
+        List<Object[]> stats = roomRepository.countAvailableRoomsByType();
+        return stats.stream()
+            .collect(Collectors.toMap(
+                stat -> (RoomType) stat[0],
+                stat -> (Long) stat[1]
+            ));
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal getAveragePriceByType(RoomType roomType) {
+        log.debug("Fetching average price for room type: {}", roomType);
+        return roomRepository.getAveragePriceByRoomType(roomType);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Long getRoomCountByStatus(RoomStatus status) {
+        log.debug("Fetching room count for status: {}", status);
+        return roomRepository.countByStatus(status);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RoomDto> getRoomMaintenanceHistory(Long roomId, Pageable pageable) {
+        log.debug("Fetching maintenance history for room: {}", roomId);
+        
+        // For now, return empty page. In a complete implementation, 
+        // this would fetch from a maintenance history table
+        return Page.empty(pageable);
+    }
+    
+    private Room findRoomById(Long roomId) {
+        return roomRepository.findById(roomId)
+            .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
+    }
+}

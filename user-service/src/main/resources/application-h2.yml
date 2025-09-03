@@ -1,0 +1,101 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: user-service
+  
+  datasource:
+    url: jdbc:h2:mem:hotel_user_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  flyway:
+    enabled: false
+  
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          ssl:
+            trust: smtp.gmail.com
+
+# JWT Configuration
+app:
+  jwt:
+    secret: ${JWT_SECRET:hotelReservationSecretKeyThatIsVeryLongAndSecureForProductionUse2024}
+    access-token-expiration: 900  # 15 minutes in seconds
+    refresh-token-expiration: 604800  # 7 days in seconds
+    issuer: hotel-reservation-system
+  
+  mail:
+    from: ${MAIL_FROM:noreply@hotelreservation.com}
+  
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
+
+# Disable Eureka for H2 demo
+eureka:
+  client:
+    enabled: false
+
+# Logging Configuration
+logging:
+  level:
+    com.hotel.user: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+# OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

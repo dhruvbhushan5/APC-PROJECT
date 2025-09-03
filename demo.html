@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Reservation System - Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .status {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        .status-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px 25px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            min-width: 150px;
+        }
+        .status-online {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.2);
+        }
+        .status-offline {
+            border-color: #f44336;
+            background: rgba(244, 67, 54, 0.2);
+        }
+        .services {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .service-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+        .service-title {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .service-desc {
+            margin-bottom: 20px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            margin: 5px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: rgba(0, 123, 255, 0.3);
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background: rgba(0, 123, 255, 0.5);
+        }
+        .demo-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .tech-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏨 Hotel Reservation System</h1>
+        <p class="subtitle">Microservices Architecture Demo with H2 Database</p>
+        
+        <div class="status">
+            <div class="status-item status-online">
+                <strong>User Service</strong><br>
+                ✅ Running on 8083
+            </div>
+            <div class="status-item status-online">
+                <strong>API Gateway</strong><br>
+                ✅ Running on 8080
+            </div>
+            <div class="status-item status-offline">
+                <strong>Room Service</strong><br>
+                ❌ Compilation Issues
+            </div>
+            <div class="status-item status-offline">
+                <strong>Payment Service</strong><br>
+                ❌ Pending
+            </div>
+        </div>
+
+        <div class="services">
+            <div class="service-card">
+                <div class="service-title">🔐 User Service (Running)</div>
+                <div class="service-desc">
+                    Complete authentication and user management system with JWT tokens, email verification, password reset, and role-based access control.
+                </div>
+                <a href="http://localhost:8083/swagger-ui.html" target="_blank" class="btn btn-primary">API Documentation</a>
+                <a href="http://localhost:8083/actuator/health" target="_blank" class="btn">Health Check</a>
+                <a href="http://localhost:8083/h2-console" target="_blank" class="btn">H2 Database Console</a>
+            </div>
+
+            <div class="service-card">
+                <div class="service-title">🌐 API Gateway (Running)</div>
+                <div class="service-desc">
+                    Spring Cloud Gateway providing unified entry point, routing, load balancing, and circuit breaker patterns for all microservices.
+                </div>
+                <a href="http://localhost:8080/actuator/health" target="_blank" class="btn btn-primary">Health Check</a>
+                <a href="http://localhost:8080/actuator/gateway/routes" target="_blank" class="btn">View Routes</a>
+            </div>
+
+            <div class="service-card">
+                <div class="service-title">🏠 Room Service (Development)</div>
+                <div class="service-desc">
+                    Room inventory management, availability checking, booking creation, and room status tracking with advanced search capabilities.
+                </div>
+                <span class="btn" style="opacity: 0.5;">API Documentation</span>
+                <span class="btn" style="opacity: 0.5;">Health Check</span>
+            </div>
+
+            <div class="service-card">
+                <div class="service-title">💳 Payment Service (Development)</div>
+                <div class="service-desc">
+                    Secure payment processing, transaction management, refunds, and integration with external payment gateways.
+                </div>
+                <span class="btn" style="opacity: 0.5;">API Documentation</span>
+                <span class="btn" style="opacity: 0.5;">Health Check</span>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h3>🚀 Quick Demo Instructions</h3>
+            
+            <div class="features">
+                <div class="feature">
+                    <strong>1. Test User Registration</strong><br>
+                    Use the User Service API to register a new user via Swagger UI
+                </div>
+                <div class="feature">
+                    <strong>2. Authentication Flow</strong><br>
+                    Login with credentials to receive JWT access and refresh tokens
+                </div>
+                <div class="feature">
+                    <strong>3. H2 Database Console</strong><br>
+                    View real-time data in the in-memory H2 database
+                </div>
+                <div class="feature">
+                    <strong>4. API Gateway Routing</strong><br>
+                    All requests through port 8080 are routed to appropriate services
+                </div>
+            </div>
+
+            <h4>🔑 Test Credentials</h4>
+            <p><strong>Admin User:</strong> admin@hotel.com / admin123</p>
+            <p><strong>H2 Database:</strong> JDBC URL: jdbc:h2:mem:hotel_user_db, User: sa, Password: (empty)</p>
+        </div>
+
+        <div class="tech-stack">
+            <div class="tech-item">Spring Boot 3.1.5</div>
+            <div class="tech-item">Spring Cloud Gateway</div>
+            <div class="tech-item">Spring Security + JWT</div>
+            <div class="tech-item">H2 In-Memory Database</div>
+            <div class="tech-item">Maven Multi-Module</div>
+            <div class="tech-item">Swagger/OpenAPI</div>
+            <div class="tech-item">Circuit Breaker</div>
+            <div class="tech-item">Microservices Architecture</div>
+        </div>
+
+        <div class="footer">
+            <p>🎯 <strong>Hotel Reservation System</strong> - Microservices Demo</p>
+            <p>Built with Spring Boot • H2 Database • RESTful APIs • Modern Architecture</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,279 @@
+package com.hotel.room.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hotel.common.dto.RoomDto;
+import com.hotel.room.service.RoomService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(RoomController.class)
+class RoomControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private RoomService roomService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private RoomDto roomDto;
+
+    @BeforeEach
+    void setUp() {
+        roomDto = RoomDto.builder()
+                .id(1L)
+                .roomNumber("101")
+                .roomType("SINGLE")
+                .pricePerNight(BigDecimal.valueOf(100.00))
+                .description("Standard single room")
+                .maxOccupancy(1)
+                .amenities("WiFi, AC, TV")
+                .isAvailable(true)
+                .build();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void createRoom_ShouldReturnCreatedRoom_WhenValidInput() throws Exception {
+        // Given
+        when(roomService.createRoom(any(RoomDto.class))).thenReturn(roomDto);
+
+        // When & Then
+        mockMvc.perform(post("/api/rooms")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(roomDto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.roomNumber").value("101"))
+                .andExpect(jsonPath("$.data.roomType").value("SINGLE"))
+                .andExpect(jsonPath("$.data.pricePerNight").value(100.00));
+
+        verify(roomService).createRoom(any(RoomDto.class));
+    }
+
+    @Test
+    @WithMockUser
+    void getRoomById_ShouldReturnRoom_WhenRoomExists() throws Exception {
+        // Given
+        when(roomService.getRoomById(1L)).thenReturn(Optional.of(roomDto));
+
+        // When & Then
+        mockMvc.perform(get("/api/rooms/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.roomNumber").value("101"));
+
+        verify(roomService).getRoomById(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void getRoomById_ShouldReturnNotFound_WhenRoomNotExists() throws Exception {
+        // Given
+        when(roomService.getRoomById(1L)).thenReturn(Optional.empty());
+
+        // When & Then
+        mockMvc.perform(get("/api/rooms/1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Room not found"));
+
+        verify(roomService).getRoomById(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void getAllRooms_ShouldReturnPagedRooms() throws Exception {
+        // Given
+        List<RoomDto> rooms = Arrays.asList(roomDto);
+        Page<RoomDto> roomPage = new PageImpl<>(rooms, PageRequest.of(0, 10), 1);
+        when(roomService.getAllRooms(any())).thenReturn(roomPage);
+
+        // When & Then
+        mockMvc.perform(get("/api/rooms")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].roomNumber").value("101"))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
+
+        verify(roomService).getAllRooms(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateRoom_ShouldReturnUpdatedRoom_WhenRoomExists() throws Exception {
+        // Given
+        RoomDto updateDto = RoomDto.builder()
+                .roomNumber("101")
+                .roomType("DELUXE")
+                .pricePerNight(BigDecimal.valueOf(150.00))
+                .description("Deluxe single room")
+                .maxOccupancy(2)
+                .amenities("WiFi, AC, TV, Minibar")
+                .isAvailable(true)
+                .build();
+
+        when(roomService.updateRoom(eq(1L), any(RoomDto.class))).thenReturn(Optional.of(updateDto));
+
+        // When & Then
+        mockMvc.perform(put("/api/rooms/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.roomType").value("DELUXE"))
+                .andExpect(jsonPath("$.data.pricePerNight").value(150.00));
+
+        verify(roomService).updateRoom(eq(1L), any(RoomDto.class));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deleteRoom_ShouldReturnNoContent_WhenRoomExists() throws Exception {
+        // Given
+        when(roomService.deleteRoom(1L)).thenReturn(true);
+
+        // When & Then
+        mockMvc.perform(delete("/api/rooms/1")
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(roomService).deleteRoom(1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deleteRoom_ShouldReturnNotFound_WhenRoomNotExists() throws Exception {
+        // Given
+        when(roomService.deleteRoom(1L)).thenReturn(false);
+
+        // When & Then
+        mockMvc.perform(delete("/api/rooms/1")
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+
+        verify(roomService).deleteRoom(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void getAvailableRooms_ShouldReturnAvailableRooms() throws Exception {
+        // Given
+        List<RoomDto> availableRooms = Arrays.asList(roomDto);
+        when(roomService.findAvailableRooms()).thenReturn(availableRooms);
+
+        // When & Then
+        mockMvc.perform(get("/api/rooms/available"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].isAvailable").value(true));
+
+        verify(roomService).findAvailableRooms();
+    }
+
+    @Test
+    @WithMockUser
+    void getRoomsByType_ShouldReturnRoomsOfSpecificType() throws Exception {
+        // Given
+        List<RoomDto> singleRooms = Arrays.asList(roomDto);
+        when(roomService.findRoomsByType("SINGLE")).thenReturn(singleRooms);
+
+        // When & Then
+        mockMvc.perform(get("/api/rooms/type/SINGLE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].roomType").value("SINGLE"));
+
+        verify(roomService).findRoomsByType("SINGLE");
+    }
+
+    @Test
+    @WithMockUser
+    void searchRoomsByPriceRange_ShouldReturnRoomsInPriceRange() throws Exception {
+        // Given
+        List<RoomDto> roomsInRange = Arrays.asList(roomDto);
+        when(roomService.findRoomsByPriceRange(any(BigDecimal.class), any(BigDecimal.class)))
+                .thenReturn(roomsInRange);
+
+        // When & Then
+        mockMvc.perform(get("/api/rooms/search")
+                        .param("minPrice", "50")
+                        .param("maxPrice", "150"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].pricePerNight").value(100.00));
+
+        verify(roomService).findRoomsByPriceRange(any(BigDecimal.class), any(BigDecimal.class));
+    }
+
+    @Test
+    void createRoom_ShouldReturnUnauthorized_WhenNotAuthenticated() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/rooms")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(roomDto)))
+                .andExpect(status().isUnauthorized());
+
+        verify(roomService, never()).createRoom(any(RoomDto.class));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void createRoom_ShouldReturnForbidden_WhenInsufficientRole() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/rooms")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(roomDto)))
+                .andExpect(status().isForbidden());
+
+        verify(roomService, never()).createRoom(any(RoomDto.class));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void createRoom_ShouldReturnBadRequest_WhenInvalidInput() throws Exception {
+        // Given
+        RoomDto invalidRoom = RoomDto.builder()
+                .roomNumber("") // Invalid empty room number
+                .roomType("SINGLE")
+                .pricePerNight(BigDecimal.valueOf(-100.00)) // Invalid negative price
+                .build();
+
+        // When & Then
+        mockMvc.perform(post("/api/rooms")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRoom)))
+                .andExpect(status().isBadRequest());
+
+        verify(roomService, never()).createRoom(any(RoomDto.class));
+    }
+}

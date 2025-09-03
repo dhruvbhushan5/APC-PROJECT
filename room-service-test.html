@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Service Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .endpoint {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        .method {
+            font-weight: bold;
+            color: #2196F3;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .response {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .order-form, .request-form {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .order-items {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .order-item {
+            display: flex;
+            gap: 10px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏨 Room Service App - API Testing Interface</h1>
+    
+    <div class="container">
+        <h2>🍽️ Food Menu Service</h2>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/menu - Get all menu items
+            <button onclick="testGetMenu()">Test</button>
+            <div id="menuResponse" class="response"></div>
+        </div>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/menu/category/{category} - Get menu by category
+            <select id="categorySelect">
+                <option value="STARTER">Starter</option>
+                <option value="MAIN_COURSE">Main Course</option>
+                <option value="DESSERT">Dessert</option>
+                <option value="BEVERAGE">Beverage</option>
+            </select>
+            <button onclick="testGetMenuByCategory()">Test</button>
+            <div id="categoryResponse" class="response"></div>
+        </div>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/menu/search?q={query} - Search menu items
+            <input type="text" id="searchQuery" placeholder="Enter search term (e.g., pizza, chicken)" value="pizza">
+            <button onclick="testSearchMenu()">Test</button>
+            <div id="searchResponse" class="response"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🛍️ Food Order Service</h2>
+        
+        <div class="endpoint">
+            <strong class="method">POST</strong> /api/food-orders - Create food order
+            <div class="order-form">
+                <div class="form-group">
+                    <label>Booking ID:</label>
+                    <input type="number" id="orderBookingId" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Room Number:</label>
+                    <input type="text" id="orderRoomNumber" value="101">
+                </div>
+                <div class="form-group">
+                    <label>Guest Name:</label>
+                    <input type="text" id="orderGuestName" value="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Guest Phone:</label>
+                    <input type="text" id="orderGuestPhone" value="+1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Special Instructions:</label>
+                    <textarea id="orderInstructions" placeholder="Any special instructions...">No onions please</textarea>
+                </div>
+                <div class="order-items">
+                    <h4>Order Items:</h4>
+                    <div class="order-item">
+                        <label>Menu Item ID:</label>
+                        <input type="number" id="item1Id" value="1" style="width: 100px;">
+                        <label>Quantity:</label>
+                        <input type="number" id="item1Qty" value="2" style="width: 80px;">
+                        <label>Special Requests:</label>
+                        <input type="text" id="item1Special" value="Extra cheese" style="flex: 1;">
+                    </div>
+                    <div class="order-item">
+                        <label>Menu Item ID:</label>
+                        <input type="number" id="item2Id" value="5" style="width: 100px;">
+                        <label>Quantity:</label>
+                        <input type="number" id="item2Qty" value="1" style="width: 80px;">
+                        <label>Special Requests:</label>
+                        <input type="text" id="item2Special" value="" style="flex: 1;">
+                    </div>
+                </div>
+            </div>
+            <button onclick="testCreateFoodOrder()">Create Order</button>
+            <div id="createOrderResponse" class="response"></div>
+        </div>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/food-orders - Get all food orders
+            <button onclick="testGetFoodOrders()">Test</button>
+            <div id="foodOrdersResponse" class="response"></div>
+        </div>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/food-orders/room/{roomNumber} - Get orders by room
+            <input type="text" id="roomNumberSearch" placeholder="Room number" value="101">
+            <button onclick="testGetOrdersByRoom()">Test</button>
+            <div id="roomOrdersResponse" class="response"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🧹 Housekeeping Service</h2>
+        
+        <div class="endpoint">
+            <strong class="method">POST</strong> /api/housekeeping - Create housekeeping request
+            <div class="request-form">
+                <div class="form-group">
+                    <label>Booking ID:</label>
+                    <input type="number" id="hkBookingId" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Room Number:</label>
+                    <input type="text" id="hkRoomNumber" value="101">
+                </div>
+                <div class="form-group">
+                    <label>Guest Name:</label>
+                    <input type="text" id="hkGuestName" value="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Guest Phone:</label>
+                    <input type="text" id="hkGuestPhone" value="+1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Request Type:</label>
+                    <select id="hkRequestType">
+                        <option value="CLEANING">Cleaning</option>
+                        <option value="MAINTENANCE">Maintenance</option>
+                        <option value="AMENITIES">Amenities</option>
+                        <option value="LAUNDRY">Laundry</option>
+                        <option value="SPECIAL_REQUEST">Special Request</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Priority:</label>
+                    <select id="hkPriority">
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="URGENT">Urgent</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description:</label>
+                    <textarea id="hkDescription" placeholder="Describe the request...">Please clean the bathroom and replace towels</textarea>
+                </div>
+            </div>
+            <button onclick="testCreateHousekeepingRequest()">Create Request</button>
+            <div id="createHkResponse" class="response"></div>
+        </div>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/housekeeping - Get all housekeeping requests
+            <button onclick="testGetHousekeepingRequests()">Test</button>
+            <div id="hkRequestsResponse" class="response"></div>
+        </div>
+        
+        <div class="endpoint">
+            <strong class="method">GET</strong> /api/housekeeping/status/{status} - Get requests by status
+            <select id="statusSelect">
+                <option value="PENDING">Pending</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+            </select>
+            <button onclick="testGetRequestsByStatus()">Test</button>
+            <div id="statusRequestsResponse" class="response"></div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8083';
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(BASE_URL + url, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...options.headers
+                    }
+                });
+                
+                const data = await response.json();
+                return {
+                    status: response.status,
+                    data: data
+                };
+            } catch (error) {
+                return {
+                    status: 'ERROR',
+                    data: { error: error.message }
+                };
+            }
+        }
+
+        function displayResponse(elementId, response) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(response, null, 2);
+        }
+
+        // Menu API Tests
+        async function testGetMenu() {
+            const response = await makeRequest('/api/menu');
+            displayResponse('menuResponse', response);
+        }
+
+        async function testGetMenuByCategory() {
+            const category = document.getElementById('categorySelect').value;
+            const response = await makeRequest(`/api/menu/category/${category}`);
+            displayResponse('categoryResponse', response);
+        }
+
+        async function testSearchMenu() {
+            const query = document.getElementById('searchQuery').value;
+            const response = await makeRequest(`/api/menu/search?q=${encodeURIComponent(query)}`);
+            displayResponse('searchResponse', response);
+        }
+
+        // Food Order API Tests
+        async function testCreateFoodOrder() {
+            const orderData = {
+                bookingId: parseInt(document.getElementById('orderBookingId').value),
+                roomNumber: document.getElementById('orderRoomNumber').value,
+                guestName: document.getElementById('orderGuestName').value,
+                guestPhone: document.getElementById('orderGuestPhone').value,
+                specialInstructions: document.getElementById('orderInstructions').value,
+                orderItems: [
+                    {
+                        menuItemId: parseInt(document.getElementById('item1Id').value),
+                        quantity: parseInt(document.getElementById('item1Qty').value),
+                        specialRequests: document.getElementById('item1Special').value
+                    },
+                    {
+                        menuItemId: parseInt(document.getElementById('item2Id').value),
+                        quantity: parseInt(document.getElementById('item2Qty').value),
+                        specialRequests: document.getElementById('item2Special').value
+                    }
+                ].filter(item => item.menuItemId && item.quantity > 0)
+            };
+
+            const response = await makeRequest('/api/food-orders', {
+                method: 'POST',
+                body: JSON.stringify(orderData)
+            });
+            displayResponse('createOrderResponse', response);
+        }
+
+        async function testGetFoodOrders() {
+            const response = await makeRequest('/api/food-orders');
+            displayResponse('foodOrdersResponse', response);
+        }
+
+        async function testGetOrdersByRoom() {
+            const roomNumber = document.getElementById('roomNumberSearch').value;
+            const response = await makeRequest(`/api/food-orders/room/${roomNumber}`);
+            displayResponse('roomOrdersResponse', response);
+        }
+
+        // Housekeeping API Tests
+        async function testCreateHousekeepingRequest() {
+            const requestData = {
+                bookingId: parseInt(document.getElementById('hkBookingId').value),
+                roomNumber: document.getElementById('hkRoomNumber').value,
+                guestName: document.getElementById('hkGuestName').value,
+                guestPhone: document.getElementById('hkGuestPhone').value,
+                requestType: document.getElementById('hkRequestType').value,
+                priority: document.getElementById('hkPriority').value,
+                description: document.getElementById('hkDescription').value
+            };
+
+            const response = await makeRequest('/api/housekeeping', {
+                method: 'POST',
+                body: JSON.stringify(requestData)
+            });
+            displayResponse('createHkResponse', response);
+        }
+
+        async function testGetHousekeepingRequests() {
+            const response = await makeRequest('/api/housekeeping');
+            displayResponse('hkRequestsResponse', response);
+        }
+
+        async function testGetRequestsByStatus() {
+            const status = document.getElementById('statusSelect').value;
+            const response = await makeRequest(`/api/housekeeping/status/${status}`);
+            displayResponse('statusRequestsResponse', response);
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Room Service API Test Interface loaded');
+            console.log('Base URL:', BASE_URL);
+        });
+    </script>
+</body>
+</html>

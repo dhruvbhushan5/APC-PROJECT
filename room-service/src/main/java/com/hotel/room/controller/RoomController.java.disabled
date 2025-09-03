@@ -1,0 +1,264 @@
+package com.hotel.room.controller;
+
+import com.hotel.room.service.RoomService;
+import com.hotel.common.dto.ApiResponse;
+import com.hotel.common.dto.RoomDto;
+import com.hotel.common.dto.RoomType;
+import com.hotel.common.dto.RoomStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * REST Controller for Room management operations
+ */
+@RestController
+@RequestMapping("/api/v1/rooms")
+@RequiredArgsConstructor
+@Slf4j
+@Validated
+@Tag(name = "Room Management", description = "APIs for managing hotel rooms")
+public class RoomController {
+
+    private final RoomService roomService;
+
+    @Operation(summary = "Create a new room", description = "Creates a new room in the hotel system")
+    @PostMapping
+    public ResponseEntity<ApiResponse<RoomDto>> createRoom(
+            @Valid @RequestBody RoomDto roomDto) {
+        log.info("Creating new room: {}", roomDto.getRoomNumber());
+        
+        RoomDto createdRoom = roomService.createRoom(roomDto);
+        ApiResponse<RoomDto> response = ApiResponse.<RoomDto>builder()
+                .success(true)
+                .message("Room created successfully")
+                .data(createdRoom)
+                .build();
+        
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @Operation(summary = "Get room by ID", description = "Retrieves a room by its unique identifier")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<RoomDto>> getRoomById(
+            @Parameter(description = "Room ID") @PathVariable @Positive Long id) {
+        log.info("Fetching room with ID: {}", id);
+        
+        RoomDto room = roomService.getRoomById(id);
+        ApiResponse<RoomDto> response = ApiResponse.<RoomDto>builder()
+                .success(true)
+                .message("Room retrieved successfully")
+                .data(room)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get room by room number", description = "Retrieves a room by its room number")
+    @GetMapping("/number/{roomNumber}")
+    public ResponseEntity<ApiResponse<RoomDto>> getRoomByNumber(
+            @Parameter(description = "Room number") @PathVariable @NotBlank String roomNumber) {
+        log.info("Fetching room with number: {}", roomNumber);
+        
+        RoomDto room = roomService.getRoomByNumber(roomNumber);
+        ApiResponse<RoomDto> response = ApiResponse.<RoomDto>builder()
+                .success(true)
+                .message("Room retrieved successfully")
+                .data(room)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get all rooms", description = "Retrieves all rooms with pagination")
+    @GetMapping
+    public ResponseEntity<ApiResponse<Page<RoomDto>>> getAllRooms(
+            @PageableDefault(size = 20, sort = "roomNumber") Pageable pageable) {
+        log.info("Fetching all rooms with pagination: {}", pageable);
+        
+        Page<RoomDto> rooms = roomService.getAllRooms(pageable);
+        ApiResponse<Page<RoomDto>> response = ApiResponse.<Page<RoomDto>>builder()
+                .success(true)
+                .message("Rooms retrieved successfully")
+                .data(rooms)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get rooms by type", description = "Retrieves rooms filtered by room type")
+    @GetMapping("/type/{roomType}")
+    public ResponseEntity<ApiResponse<List<RoomDto>>> getRoomsByType(
+            @Parameter(description = "Room type") @PathVariable RoomType roomType) {
+        log.info("Fetching rooms by type: {}", roomType);
+        
+        List<RoomDto> rooms = roomService.getRoomsByType(roomType);
+        ApiResponse<List<RoomDto>> response = ApiResponse.<List<RoomDto>>builder()
+                .success(true)
+                .message("Rooms retrieved successfully")
+                .data(rooms)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get rooms by status", description = "Retrieves rooms filtered by status")
+    @GetMapping("/status/{status}")
+    public ResponseEntity<ApiResponse<List<RoomDto>>> getRoomsByStatus(
+            @Parameter(description = "Room status") @PathVariable RoomStatus status) {
+        log.info("Fetching rooms by status: {}", status);
+        
+        List<RoomDto> rooms = roomService.getRoomsByStatus(status);
+        ApiResponse<List<RoomDto>> response = ApiResponse.<List<RoomDto>>builder()
+                .success(true)
+                .message("Rooms retrieved successfully")
+                .data(rooms)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Check room availability", description = "Checks if a room is available for given dates")
+    @GetMapping("/{id}/availability")
+    public ResponseEntity<ApiResponse<Boolean>> checkRoomAvailability(
+            @Parameter(description = "Room ID") @PathVariable @Positive Long id,
+            @Parameter(description = "Check-in date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
+            @Parameter(description = "Check-out date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate) {
+        log.info("Checking availability for room {} from {} to {}", id, checkInDate, checkOutDate);
+        
+        boolean isAvailable = roomService.isRoomAvailable(id, checkInDate, checkOutDate);
+        ApiResponse<Boolean> response = ApiResponse.<Boolean>builder()
+                .success(true)
+                .message(isAvailable ? "Room is available" : "Room is not available")
+                .data(isAvailable)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get available rooms", description = "Retrieves all available rooms for given dates")
+    @GetMapping("/available")
+    public ResponseEntity<ApiResponse<List<RoomDto>>> getAvailableRooms(
+            @Parameter(description = "Check-in date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
+            @Parameter(description = "Check-out date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate) {
+        log.info("Fetching available rooms from {} to {}", checkInDate, checkOutDate);
+        
+        List<RoomDto> availableRooms = roomService.getAvailableRooms(checkInDate, checkOutDate);
+        ApiResponse<List<RoomDto>> response = ApiResponse.<List<RoomDto>>builder()
+                .success(true)
+                .message("Available rooms retrieved successfully")
+                .data(availableRooms)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get available rooms by type", description = "Retrieves available rooms filtered by type for given dates")
+    @GetMapping("/available/type/{roomType}")
+    public ResponseEntity<ApiResponse<List<RoomDto>>> getAvailableRoomsByType(
+            @Parameter(description = "Room type") @PathVariable RoomType roomType,
+            @Parameter(description = "Check-in date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
+            @Parameter(description = "Check-out date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate) {
+        log.info("Fetching available {} rooms from {} to {}", roomType, checkInDate, checkOutDate);
+        
+        List<RoomDto> availableRooms = roomService.getAvailableRoomsByType(roomType, checkInDate, checkOutDate);
+        ApiResponse<List<RoomDto>> response = ApiResponse.<List<RoomDto>>builder()
+                .success(true)
+                .message("Available rooms retrieved successfully")
+                .data(availableRooms)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Search rooms", description = "Search rooms with multiple filters")
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Page<RoomDto>>> searchRooms(
+            @Parameter(description = "Room type") @RequestParam(required = false) RoomType roomType,
+            @Parameter(description = "Room status") @RequestParam(required = false) RoomStatus status,
+            @Parameter(description = "Minimum price") @RequestParam(required = false) BigDecimal minPrice,
+            @Parameter(description = "Maximum price") @RequestParam(required = false) BigDecimal maxPrice,
+            @Parameter(description = "Minimum capacity") @RequestParam(required = false) Integer minCapacity,
+            @Parameter(description = "Maximum capacity") @RequestParam(required = false) Integer maxCapacity,
+            @Parameter(description = "Check-in date for availability") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
+            @Parameter(description = "Check-out date for availability") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate,
+            @PageableDefault(size = 20, sort = "roomNumber") Pageable pageable) {
+        log.info("Searching rooms with filters");
+        
+        Page<RoomDto> rooms = roomService.searchRooms(roomType, status, minPrice, maxPrice, 
+                minCapacity, maxCapacity, checkInDate, checkOutDate, pageable);
+        ApiResponse<Page<RoomDto>> response = ApiResponse.<Page<RoomDto>>builder()
+                .success(true)
+                .message("Room search completed successfully")
+                .data(rooms)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Update room", description = "Updates an existing room")
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<RoomDto>> updateRoom(
+            @Parameter(description = "Room ID") @PathVariable @Positive Long id,
+            @Valid @RequestBody RoomDto roomDto) {
+        log.info("Updating room with ID: {}", id);
+        
+        RoomDto updatedRoom = roomService.updateRoom(id, roomDto);
+        ApiResponse<RoomDto> response = ApiResponse.<RoomDto>builder()
+                .success(true)
+                .message("Room updated successfully")
+                .data(updatedRoom)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Update room status", description = "Updates the status of a room")
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<RoomDto>> updateRoomStatus(
+            @Parameter(description = "Room ID") @PathVariable @Positive Long id,
+            @Parameter(description = "New room status") @RequestParam RoomStatus status) {
+        log.info("Updating room {} status to: {}", id, status);
+        
+        RoomDto updatedRoom = roomService.updateRoomStatus(id, status);
+        ApiResponse<RoomDto> response = ApiResponse.<RoomDto>builder()
+                .success(true)
+                .message("Room status updated successfully")
+                .data(updatedRoom)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Delete room", description = "Deletes a room from the system")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteRoom(
+            @Parameter(description = "Room ID") @PathVariable @Positive Long id) {
+        log.info("Deleting room with ID: {}", id);
+        
+        roomService.deleteRoom(id);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(true)
+                .message("Room deleted successfully")
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+}

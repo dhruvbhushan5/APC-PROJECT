@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Reservation System - Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-header h1 {
+            color: #333;
+            margin: 0;
+        }
+        .login-header p {
+            color: #666;
+            margin: 10px 0 0 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .login-button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .login-button:hover {
+            background: #5a6fd8;
+        }
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .register-link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .quick-links {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .quick-links a {
+            display: inline-block;
+            margin: 5px 10px;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            color: #333;
+            text-decoration: none;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .quick-links a:hover {
+            background: #e9ecef;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .default-creds {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .default-creds h4 {
+            margin: 0 0 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🏨 Hotel System</h1>
+            <p>Please login to continue</p>
+        </div>
+
+        <div class="default-creds">
+            <h4>🔑 Test Credentials</h4>
+            <p><strong>Email:</strong> admin@hotel.com</p>
+            <p><strong>Password:</strong> Admin123!</p>
+            <small>Use these credentials or register a new account via Swagger UI</small>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" value="admin@hotel.com" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" value="Admin123!" required>
+            </div>
+            <button type="submit" class="login-button">Login</button>
+        </form>
+
+        <div id="result" class="result"></div>
+
+        <div class="register-link">
+            <p>Don't have an account? <a href="http://localhost:8083/swagger-ui.html">Register via API</a></p>
+        </div>
+
+        <div class="quick-links">
+            <a href="http://localhost:8083/swagger-ui.html">API Docs</a>
+            <a href="http://localhost:8083/h2-console">Database</a>
+            <a href="file:///c:/Users/VICTUS/OneDrive/Desktop/hotel-reservation/simple-demo.html">Demo</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const response = await fetch('http://localhost:8083/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Login Successful!</h4>
+                        <p><strong>Access Token:</strong></p>
+                        <textarea readonly style="width: 100%; height: 60px; font-size: 12px;">${data.data.accessToken}</textarea>
+                        <p><small>Copy this token and use it in Swagger UI's Authorize button with "Bearer " prefix</small></p>
+                    `;
+                    
+                    // Store token for later use
+                    localStorage.setItem('hotelToken', data.data.accessToken);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <h4>❌ Login Failed</h4>
+                        <p>${data.message || 'Please check your credentials'}</p>
+                        <p><small>Try registering first via <a href="http://localhost:8083/swagger-ui.html">Swagger UI</a></small></p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h4>❌ Connection Error</h4>
+                    <p>Cannot connect to server. Make sure the User Service is running on port 8083.</p>
+                    <p><small>Error: ${error.message}</small></p>
+                `;
+            }
+        });
+
+        // Check if user already has a token
+        window.onload = function() {
+            const token = localStorage.getItem('hotelToken');
+            if (token) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.className = 'result success';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h4>🔑 Existing Session Found</h4>
+                    <p>You have a stored token. Use it in Swagger UI.</p>
+                    <button onclick="localStorage.removeItem('hotelToken'); location.reload();">Clear Token</button>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

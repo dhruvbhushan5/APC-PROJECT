@@ -1,0 +1,410 @@
+package com.hotel.room.service.impl;
+
+import com.hotel.room.entity.Booking;
+import com.hotel.room.entity.Room;
+import com.hotel.room.mapper.BookingMapper;
+import com.hotel.room.repository.BookingRepository;
+import com.hotel.room.repository.RoomRepository;
+import com.hotel.room.service.BookingService;
+import com.hotel.common.dto.BookingDto;
+import com.hotel.common.dto.BookingStatus;
+import com.hotel.common.dto.RoomStatus;
+import com.hotel.common.exception.ResourceNotFoundException;
+import com.hotel.common.exception.RoomNotAvailableException;
+import com.hotel.common.util.DateUtils;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * Implementation of BookingService for booking management operations
+ */
+@Service
+@Transactional
+@RequiredArgsConstructor
+@Slf4j
+public class BookingServiceImpl implements BookingService {
+    
+    private final BookingRepository bookingRepository;
+    private final RoomRepository roomRepository;
+    private final BookingMapper bookingMapper;
+    
+    @Override
+    public BookingDto createBooking(BookingDto bookingDto) {
+        log.info("Creating new booking for guest: {} in room: {}", 
+                bookingDto.getGuestEmail(), bookingDto.getRoomId());
+        
+        // Validate booking dates
+        if (!DateUtils.areValidBookingDates(bookingDto.getCheckInDate(), bookingDto.getCheckOutDate())) {
+            throw new IllegalArgumentException("Invalid booking dates");
+        }
+        
+        // Find and validate room
+        Room room = roomRepository.findById(bookingDto.getRoomId())
+            .orElseThrow(() -> new ResourceNotFoundException("Room", bookingDto.getRoomId()));
+        
+        // Check room availability
+        if (!bookingRepository.isRoomAvailableForDates(
+                bookingDto.getRoomId(), bookingDto.getCheckInDate(), bookingDto.getCheckOutDate())) {
+            throw new RoomNotAvailableException(bookingDto.getRoomId());
+        }
+        
+        // Calculate total amount
+        int numberOfNights = DateUtils.calculateNumberOfNights(
+            bookingDto.getCheckInDate(), bookingDto.getCheckOutDate());
+        BigDecimal totalAmount = room.getPricePerNight().multiply(BigDecimal.valueOf(numberOfNights));
+        
+        Booking booking = bookingMapper.toEntity(bookingDto);
+        booking.setRoom(room);
+        booking.setTotalAmount(totalAmount);
+        booking.setStatus(BookingStatus.PENDING);
+        booking.setPaidAmount(BigDecimal.ZERO);
+        
+        Booking savedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully created booking with ID: {}", savedBooking.getId());
+        return bookingMapper.toDto(savedBooking);
+    }
+    
+    @Override
+    public BookingDto updateBooking(Long bookingId, BookingDto bookingDto) {
+        log.info("Updating booking with ID: {}", bookingId);
+        
+        Booking existingBooking = findBookingById(bookingId);
+        
+        // Prevent updates to checked-in or checked-out bookings
+        if (existingBooking.getStatus() == BookingStatus.CHECKED_IN || 
+            existingBooking.getStatus() == BookingStatus.CHECKED_OUT) {
+            throw new IllegalStateException("Cannot update booking in status: " + existingBooking.getStatus());
+        }
+        
+        // If dates are being changed, validate availability
+        if (!existingBooking.getCheckInDate().equals(bookingDto.getCheckInDate()) ||
+            !existingBooking.getCheckOutDate().equals(bookingDto.getCheckOutDate())) {
+            
+            if (!DateUtils.areValidBookingDates(bookingDto.getCheckInDate(), bookingDto.getCheckOutDate())) {
+                throw new IllegalArgumentException("Invalid booking dates");
+            }
+            
+            // Check availability excluding current booking
+            List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                existingBooking.getRoom().getId(), bookingDto.getCheckInDate(), bookingDto.getCheckOutDate());
+            conflicts.removeIf(b -> b.getId().equals(bookingId));
+            
+            if (!conflicts.isEmpty()) {
+                throw new RoomNotAvailableException(existingBooking.getRoom().getId());
+            }
+            
+            // Recalculate total amount
+            int numberOfNights = DateUtils.calculateNumberOfNights(
+                bookingDto.getCheckInDate(), bookingDto.getCheckOutDate());
+            BigDecimal totalAmount = existingBooking.getRoom().getPricePerNight()
+                .multiply(BigDecimal.valueOf(numberOfNights));
+            bookingDto.setTotalAmount(totalAmount);
+        }
+        
+        bookingMapper.updateEntityFromDto(bookingDto, existingBooking);
+        Booking updatedBooking = bookingRepository.save(existingBooking);
+        
+        log.info("Successfully updated booking with ID: {}", bookingId);
+        return bookingMapper.toDto(updatedBooking);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public BookingDto getBookingById(Long bookingId) {
+        log.debug("Fetching booking with ID: {}", bookingId);
+        Booking booking = findBookingById(bookingId);
+        return bookingMapper.toDto(booking);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public BookingDto getBookingByIdAndEmail(Long bookingId, String guestEmail) {
+        log.debug("Fetching booking with ID: {} for guest: {}", bookingId, guestEmail);
+        Booking booking = bookingRepository.findByIdAndGuestEmail(bookingId, guestEmail)
+            .orElseThrow(() -> new ResourceNotFoundException("Booking", bookingId));
+        return bookingMapper.toDto(booking);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingDto> getAllBookings(Pageable pageable) {
+        log.debug("Fetching all bookings with pagination: {}", pageable);
+        Page<Booking> bookings = bookingRepository.findAll(pageable);
+        return bookings.map(bookingMapper::toDto);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsByGuestEmail(String guestEmail) {
+        log.debug("Fetching bookings for guest: {}", guestEmail);
+        List<Booking> bookings = bookingRepository.findByGuestEmail(guestEmail);
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsByGuestId(Long guestId) {
+        log.debug("Fetching bookings for guest ID: {}", guestId);
+        List<Booking> bookings = bookingRepository.findByGuestId(guestId);
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsByStatus(BookingStatus status) {
+        log.debug("Fetching bookings with status: {}", status);
+        List<Booking> bookings = bookingRepository.findByStatus(status);
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsByRoomId(Long roomId) {
+        log.debug("Fetching bookings for room ID: {}", roomId);
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
+        List<Booking> bookings = bookingRepository.findByRoom(room);
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingDto> getGuestBookingHistory(String guestEmail, Pageable pageable) {
+        log.debug("Fetching booking history for guest: {}", guestEmail);
+        Page<Booking> bookings = bookingRepository.findGuestBookingHistory(guestEmail, pageable);
+        return bookings.map(bookingMapper::toDto);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsForCheckIn(LocalDate date) {
+        log.debug("Fetching bookings for check-in on: {}", date);
+        List<Booking> bookings = bookingRepository.findBookingsForCheckInDate(date);
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsForCheckOut(LocalDate date) {
+        log.debug("Fetching bookings for check-out on: {}", date);
+        List<Booking> bookings = bookingRepository.findBookingsForCheckOutDate(date);
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getActiveBookings() {
+        log.debug("Fetching active bookings");
+        List<Booking> bookings = bookingRepository.findActiveBookings(LocalDate.now());
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingDto> getOverdueBookings() {
+        log.debug("Fetching overdue bookings");
+        List<Booking> bookings = bookingRepository.findOverdueBookings(LocalDate.now());
+        return bookingMapper.toDtoList(bookings);
+    }
+    
+    @Override
+    public BookingDto checkInGuest(Long bookingId) {
+        log.info("Checking in guest for booking: {}", bookingId);
+        
+        Booking booking = findBookingById(bookingId);
+        
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalStateException("Booking must be confirmed before check-in");
+        }
+        
+        if (booking.getCheckInDate().isAfter(LocalDate.now())) {
+            throw new IllegalStateException("Cannot check in before check-in date");
+        }
+        
+        booking.setStatus(BookingStatus.CHECKED_IN);
+        booking.setCheckInTime(LocalDateTime.now());
+        
+        // Update room status
+        Room room = booking.getRoom();
+        room.setStatus(RoomStatus.OCCUPIED);
+        roomRepository.save(room);
+        
+        Booking updatedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully checked in guest for booking: {}", bookingId);
+        return bookingMapper.toDto(updatedBooking);
+    }
+    
+    @Override
+    public BookingDto checkOutGuest(Long bookingId) {
+        log.info("Checking out guest for booking: {}", bookingId);
+        
+        Booking booking = findBookingById(bookingId);
+        
+        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
+            throw new IllegalStateException("Guest must be checked in before check-out");
+        }
+        
+        booking.setStatus(BookingStatus.CHECKED_OUT);
+        booking.setCheckOutTime(LocalDateTime.now());
+        
+        // Update room status to cleaning
+        Room room = booking.getRoom();
+        room.setStatus(RoomStatus.CLEANING);
+        roomRepository.save(room);
+        
+        Booking updatedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully checked out guest for booking: {}", bookingId);
+        return bookingMapper.toDto(updatedBooking);
+    }
+    
+    @Override
+    public BookingDto cancelBooking(Long bookingId, String cancellationReason) {
+        log.info("Cancelling booking: {} with reason: {}", bookingId, cancellationReason);
+        
+        Booking booking = findBookingById(bookingId);
+        
+        if (booking.getStatus() == BookingStatus.CHECKED_IN || 
+            booking.getStatus() == BookingStatus.CHECKED_OUT) {
+            throw new IllegalStateException("Cannot cancel booking in status: " + booking.getStatus());
+        }
+        
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason(cancellationReason);
+        
+        Booking updatedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully cancelled booking: {}", bookingId);
+        return bookingMapper.toDto(updatedBooking);
+    }
+    
+    @Override
+    public BookingDto confirmBooking(Long bookingId) {
+        log.info("Confirming booking: {}", bookingId);
+        
+        Booking booking = findBookingById(bookingId);
+        
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalStateException("Only pending bookings can be confirmed");
+        }
+        
+        booking.setStatus(BookingStatus.CONFIRMED);
+        Booking updatedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully confirmed booking: {}", bookingId);
+        return bookingMapper.toDto(updatedBooking);
+    }
+    
+    @Override
+    public BookingDto markAsNoShow(Long bookingId) {
+        log.info("Marking booking as no-show: {}", bookingId);
+        
+        Booking booking = findBookingById(bookingId);
+        
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalStateException("Only confirmed bookings can be marked as no-show");
+        }
+        
+        booking.setStatus(BookingStatus.NO_SHOW);
+        
+        // Make room available again
+        Room room = booking.getRoom();
+        room.setStatus(RoomStatus.AVAILABLE);
+        roomRepository.save(room);
+        
+        Booking updatedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully marked booking as no-show: {}", bookingId);
+        return bookingMapper.toDto(updatedBooking);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingDto> searchBookings(String guestEmail, String guestName, BookingStatus status,
+                                          String roomNumber, LocalDate checkInDate, LocalDate checkOutDate,
+                                          Pageable pageable) {
+        log.debug("Searching bookings with filters");
+        Page<Booking> bookings = bookingRepository.searchBookings(
+            guestEmail, guestName, status, roomNumber, checkInDate, checkOutDate, pageable);
+        return bookings.map(bookingMapper::toDto);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isRoomAvailableForBooking(Long roomId, LocalDate checkIn, LocalDate checkOut) {
+        log.debug("Checking room availability for booking");
+        return bookingRepository.isRoomAvailableForDates(roomId, checkIn, checkOut);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Map<BookingStatus, Long> getBookingStatsByStatus(LocalDateTime startDate, LocalDateTime endDate) {
+        log.debug("Fetching booking statistics by status");
+        List<Object[]> stats = bookingRepository.getBookingStatsByStatus(startDate, endDate);
+        return stats.stream()
+            .collect(Collectors.toMap(
+                stat -> (BookingStatus) stat[0],
+                stat -> (Long) stat[1]
+            ));
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Double getTotalRevenue(LocalDateTime startDate, LocalDateTime endDate) {
+        log.debug("Fetching total revenue for period");
+        return bookingRepository.getTotalRevenueForPeriod(startDate, endDate);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Double getPaidRevenue(LocalDateTime startDate, LocalDateTime endDate) {
+        log.debug("Fetching paid revenue for period");
+        return bookingRepository.getPaidRevenueForPeriod(startDate, endDate);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingDto> searchBookings(String guestEmail, Long roomId, BookingStatus status,
+                                          LocalDate checkInFrom, LocalDate checkInTo, 
+                                          LocalDate checkOutFrom, LocalDate checkOutTo,
+                                          Pageable pageable) {
+        log.debug("Searching bookings with advanced filters");
+        Page<Booking> bookings = bookingRepository.searchBookingsAdvanced(
+            guestEmail, roomId, status, checkInFrom, checkInTo, checkOutFrom, checkOutTo, pageable);
+        return bookings.map(bookingMapper::toDto);
+    }
+    
+    @Override
+    public void deleteBooking(Long bookingId) {
+        log.info("Deleting booking with ID: {}", bookingId);
+        
+        Booking booking = findBookingById(bookingId);
+        
+        // Only allow deletion of cancelled or pending bookings
+        if (booking.getStatus() != BookingStatus.CANCELLED && 
+            booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalStateException("Can only delete cancelled or pending bookings");
+        }
+        
+        bookingRepository.delete(booking);
+        log.info("Successfully deleted booking with ID: {}", bookingId);
+    }
+    
+    private Booking findBookingById(Long bookingId) {
+        return bookingRepository.findById(bookingId)
+            .orElseThrow(() -> new ResourceNotFoundException("Booking", bookingId));
+    }
+}
